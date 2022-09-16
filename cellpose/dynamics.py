@@ -1,4 +1,4 @@
-import time, os
+import time, os, sys
 from scipy.ndimage.filters import maximum_filter1d
 import torch
 import scipy.ndimage
@@ -18,7 +18,7 @@ import torch
 from torch import optim, nn
 from . import resnet_torch
 TORCH_ENABLED = True 
-torch_GPU = torch.device('cuda')
+torch_GPU = torch.device('cuda') if not sys.platform == "darwin" else torch.device("mps")
 torch_CPU = torch.device('cpu')
 
 @njit('(float64[:], int32[:], int32[:], int32, int32, int32, int32)', nogil=True)
@@ -106,7 +106,7 @@ def masks_to_flows_gpu(masks, device=None):
         in which it resides 
     """
     if device is None:
-        device = torch.device('cuda')
+        device = torch_GPU
 
     
     Ly0,Lx0 = masks.shape

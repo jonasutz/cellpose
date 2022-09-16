@@ -676,11 +676,12 @@ class CellposeModel(UnetModel):
         """ loss function between true labels lbl and prediction y """
         veci = 5. * self._to_device(lbl[:,1:])
         lbl  = self._to_device(lbl[:,0]>.5)
-        loss = self.criterion(y[:,:2] , veci) 
-        loss /= 2.
+        loss = self.criterion(y[:,:2] , veci)
+        loss = loss / 2.
+        #loss /= 2.
         loss2 = self.criterion2(y[:,2] , lbl)
         loss = loss + loss2
-        return loss        
+        return loss
 
 
     def train(self, train_data, train_labels, train_files=None, 
@@ -781,6 +782,7 @@ class CellposeModel(UnetModel):
 
         if channels is None:
             models_logger.warning('channels is set to None, input must therefore have nchan channels (default is 2)')
+        
         model_path = self._train_net(train_data, train_flows, 
                                      test_data=test_data, test_labels=test_flows,
                                      save_path=save_path, save_every=save_every, save_each=save_each,

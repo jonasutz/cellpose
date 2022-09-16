@@ -53,18 +53,45 @@ def use_gpu(gpu_number=0, use_torch=True):
         raise ValueError('cellpose only runs with pytorch now')
 
 def _use_gpu_torch(gpu_number=0):
-    try:
-        device = torch.device('cuda:' + str(gpu_number))
-        _ = torch.zeros([1, 2, 3]).to(device)
-        core_logger.info('** TORCH CUDA version installed and working. **')
-        return True
-    except:
-        core_logger.info('TORCH CUDA version not installed/working.')
-        return False
+    if sys.platform == "darwin": # MPS is only available on macOS
+        if not torch.backends.mps.is_available():
+            if not torch.backends.mps.is_built():
+                core_logger.info("MPS not available because the current PyTorch install was not built with MPS enabled.")
+                return False
+            else:
+                core_logger.info("MPS not available because the current macOS version is not 12.3+ "
+                "and/or you do not have an MPS-enabled device on this machine.")
+                return False
+        else:
+            try:
+                device = torch.device("mps")
+                _ = torch.zeros([1, 2, 3]).to(device)
+                core_logger.info('** TORCH MPS version installed and working')
+                return True
+            except:
+                core_logger.info('TORCH MPS version not working.')
+                return False
+    else:
+        if not torch.cuda.is_available():
+            if not torch.backends.cuda.is_built():
+                core_logger.info("CUDA not available because the current PyTorch install was not built with CUDA enabled")
+                return False
+            else:
+                core_logger.info("CUDA not available because you do not have an CUDA-enbabled device on this machine")
+                return False
+        else:
+            try:
+                device = torch.device('cuda:' + str(gpu_number))
+                _ = torch.zeros([1, 2, 3]).to(device)
+                core_logger.info('** TORCH CUDA version installed and working. **')
+                return True
+            except:
+                core_logger.info('TORCH CUDA version not working.')
+                return False
 
 def assign_device(use_torch=True, gpu=False, device=0):
     if gpu and use_gpu(use_torch=True):
-        device = torch.device(f'cuda:{device}')
+        device = torch.device(f'cuda:{device}') if not sys.platform == "darwin" else torch.device("mps")
         gpu=True
         core_logger.info('>>>> using GPU')
     else:
@@ -96,7 +123,7 @@ class UnetModel():
             sdevice, gpu = assign_device(self.torch, gpu)
         self.device = device if device is not None else sdevice
         if device is not None:
-            device_gpu = self.device.type=='cuda'
+            device_gpu = self.device.type=='cuda' or self.device.type=='mps'
         self.gpu = gpu if device is None else device_gpu
         if not self.gpu:
             self.mkldnn = check_mkl(True)
@@ -726,6 +753,7 @@ class UnetModel():
         self.net.train()
         y = self.net(X)[0]
         del X
+        #breakpoint()
         loss = self.loss_fn(lbl,y)
         loss.backward()
         train_loss = loss.item()
